@@ -1,5 +1,3 @@
-
-
 # C Language Review
 
 ## 0. Info
@@ -21,19 +19,16 @@
 #include <stdio.h>
 int main(void)
 {
-    int a = 1, b = 2;
-    swap(a, b); // call by value
-    printf("%d, %d\n", a, b);
+    int a = 1, b = 2, c;
+    c = sum(a, b); // call by value
+    printf("%d\n", c);
     
     return 0;
 }
 
-void swap(int m, int n)
+int sum(int m, int n)
 {
-    int tmp;
-    tmp = m;
-    m = n;
-    n = tmp;
+    return m+n;
 }
 ```
 
@@ -742,7 +737,3 @@ int main(void)
 	return 0;
 }
 ```
-
-### 3.2. 소스 또쓸래
-
-
