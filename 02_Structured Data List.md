@@ -13,10 +13,10 @@
 
 ### 1.1. Stack LIFO
 
-- push
-- pop
-- peek
-- empty
+- push: put new item on the stack
+- pop: take the latest item on the stack
+- peek: see the latest item on the stack
+- empty: check whether the stack is empty
 
 ```c
 #include <stdio.h>
@@ -66,7 +66,7 @@ int stackPush(int item)
 	return 0; // non-error
 }
 
-int stackTop(int* error)
+int stackPeek(int* error)
 {
 	// check empty
 	if (stackEmpty())
@@ -92,8 +92,137 @@ int stackPop(int* error)
 }
 ```
 
-- Solve 6 / 2 ( 1 + 2 ) ???
-- infix postfix prefix
+- Calculate 6 / 2 ( 1 + 3 ) ???
+- postfix implementation
+
+```c
+#define STR_SIZE	(100)
+int main()
+{
+	int i;
+	char str[STR_SIZE];
+	// input
+	printf("Enter the calculation: ");
+	scanf_s("%s", str, STR_SIZE);
+	
+	i = 0;
+	while (i < STR_SIZE)
+	{
+		if (str[i] == '\0')
+		{
+			// end of string: take out all operators from stack
+			int err = 0;
+			char tempChar;
+			while (1)
+			{
+				tempChar = stackPop(&err);
+				if (err)
+					break;
+				else
+					putchar(tempChar);
+			}
+			break;
+		}
+		else if ('0' <= str[i] && str[i] <= '9')
+		{
+			// number: print
+			putchar(str[i]);
+		}
+		else if (str[i] == '(')
+		{
+			// bracket (: push
+			if (stackPush(str[i]))
+			{
+				printf("\n!!! Stack full !!!\n");
+				break;
+			}
+		}
+		else if (str[i] == ')')
+		{
+			// bracket ): pop until meet (
+			int err = 0;
+			char tempChar;
+			while(1)
+			{
+				tempChar = stackPop(&err);
+				if (err)
+				{
+					printf("\n!!! Bracket dismatch !!!\n");
+					break;
+				}
+				else if (tempChar != '(')
+				{
+					putchar(tempChar);
+				}
+				else
+				{
+					break;
+				}
+			}
+			if (err)
+				break;
+		}
+		else if (str[i] == '*' ||
+				str[i] == '/')
+		{
+			// high priority operator
+			while (1)
+			{
+				int err = 0;
+				char tempChar;
+				tempChar = stackPeek(&err);
+				if (err)
+				{
+					stackPush(str[i]);
+					break;
+				}
+				else if (tempChar == '*' || tempChar == '/')
+				{
+					putchar(stackPop(&err));
+				}
+				else
+				{
+					stackPush(str[i]);
+					break;
+				}
+			}
+		}
+		else if (str[i] == '+' ||
+				str[i] == '-')
+		{
+			// low priority operator
+			while (1)
+			{
+				int err = 0;
+				char tempChar;
+				tempChar = stackPeek(&err);
+				if (err)
+				{
+					stackPush(str[i]);
+					break;
+				}
+				else if (tempChar == '*' ||
+						tempChar == '/' ||
+						tempChar == '+' ||
+						tempChar == '-')
+				{
+					putchar(stackPop(&err));
+				}
+				else
+				{
+					stackPush(str[i]);
+					break;
+				}
+			}
+		}
+		i++;
+	}
+	printf("\n");
+	return 0;
+}
+```
+
+
 
 ### 1.2. Queue FIFO
 
