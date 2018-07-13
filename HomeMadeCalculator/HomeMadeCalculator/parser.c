@@ -33,7 +33,7 @@ int parser(QueueType *q, char str[], int strMax)
 				str[idx] == '*' || str[idx] == '/')
 		{
 			tempObject.t = 'o';
-			tempObject.d.br = str[idx++];
+			tempObject.d.op = str[idx++];
 			if (queuePush(q, tempObject))
 				return -3; // queue push error
 		}
@@ -66,7 +66,7 @@ int parser(QueueType *q, char str[], int strMax)
 				{
 					// read as operator
 					tempObject.t = 'o';
-					tempObject.d.br = str[idx++];
+					tempObject.d.op = str[idx++];
 					if (queuePush(q, tempObject))
 						return -7; // queue push error
 				}
@@ -172,11 +172,7 @@ int convertPostfix(QueueType *qout, StackType *s, QueueType *qin)
 						break;
 					else
 					{
-						if (tempObject.d.op == '^' ||
-							tempObject.d.op == '*' ||
-							tempObject.d.op == '/' ||
-							tempObject.d.op == '+' ||
-							tempObject.d.op == '-')
+						if (tempObject.d.op == '^')
 						{
 							err = 0;
 							if (queuePush(qout, stackPop(s, &err)))
@@ -184,6 +180,11 @@ int convertPostfix(QueueType *qout, StackType *s, QueueType *qin)
 							if (err)
 								return -20; // stack pop error
 						}
+						else if (tempObject.d.op == '*' ||
+							tempObject.d.op == '/' ||
+							tempObject.d.op == '+' ||
+							tempObject.d.op == '-')
+							break;
 						else
 							return -21; // operator error
 					}
@@ -201,10 +202,9 @@ int convertPostfix(QueueType *qout, StackType *s, QueueType *qin)
 						break;
 					else
 					{
-						if (tempObject.d.op == '*' ||
-							tempObject.d.op == '/' ||
-							tempObject.d.op == '+' ||
-							tempObject.d.op == '-')
+						if (tempObject.d.op == '^' ||
+							tempObject.d.op == '*' ||
+							tempObject.d.op == '/')
 						{
 							err = 0;
 							if (queuePush(qout, stackPop(s, &err)))
@@ -212,7 +212,8 @@ int convertPostfix(QueueType *qout, StackType *s, QueueType *qin)
 							if (err)
 								return -20; // stack pop error
 						}
-						else if (tempObject.d.op == '^')
+						else if (tempObject.d.op == '+' ||
+								tempObject.d.op == '-')
 							break;
 						else
 							return -21; // operator error
@@ -232,7 +233,10 @@ int convertPostfix(QueueType *qout, StackType *s, QueueType *qin)
 					else
 					{
 						if (tempObject.d.op == '+' ||
-							tempObject.d.op == '-')
+							tempObject.d.op == '-' ||
+							tempObject.d.op == '^' ||
+							tempObject.d.op == '*' ||
+							tempObject.d.op == '/')
 						{
 							err = 0;
 							if (queuePush(qout, stackPop(s, &err)))
@@ -240,10 +244,6 @@ int convertPostfix(QueueType *qout, StackType *s, QueueType *qin)
 							if (err)
 								return -20; // stack pop error
 						}
-						else if (tempObject.d.op == '^' ||
-							tempObject.d.op == '*' ||
-							tempObject.d.op == '/')
-							break;
 						else
 							return -21; // operator error
 					}
