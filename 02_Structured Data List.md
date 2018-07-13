@@ -13,9 +13,9 @@
 
 ### 1.1. Stack LIFO
 
-- push: put new item on the stack
-- pop: take the latest item on the stack
-- peek: see the latest item on the stack
+- push: put new item in the stack
+- pop: take the latest item from the stack
+- peek: see the latest item of the stack
 - empty: check whether the stack is empty
 
 ```c
@@ -92,8 +92,11 @@ int stackPop(int* error)
 }
 ```
 
+### 1.2. Postfix Implementation
+
 - Calculate 6 / 2 ( 1 + 3 ) ???
-- postfix implementation
+- 두 피연산자 뒤에 연산자를 둠으로써, 수식을 해석할 때 우선순위를 따로 고려할 필요가 없어지고, 괄호도 사라짐
+- 6 / 2 * (1 + 3) => 6 2 / 1 3 + *
 
 ```c
 #define STR_SIZE	(100)
@@ -222,15 +225,13 @@ int main()
 }
 ```
 
+### 1.3. Queue FIFO
 
-
-### 1.2. Queue FIFO
-
-- push
-- pop
-- peek head
-- peek tail
-- empty
+- push: put a new item in the queue
+- pop: take the oldest item from the queue
+- peek head: see the oldest item
+- peek tail: see the latest item
+- empty: check whether the queue is empty
 
 ```c
 #include <stdio.h>
@@ -335,5 +336,8 @@ int queuePop(int* error)
 }
 ```
 
+### 1.4. Postfix Calculator Implementation
 
+- postfix로 표현한 수식을 계산하려면 stack과 queue가 필요함
+- 
 
