@@ -1,7 +1,7 @@
 #include "parser.h"
 
 
-int parser(QueueType *q, char str[], int strMax)
+int parser(QueueType *q, VListType *v, char str[], int strMax)
 {
 	OType tempObject;
 	int err;
@@ -30,7 +30,8 @@ int parser(QueueType *q, char str[], int strMax)
 		}
 		// operator
 		else if (str[idx] == '+' || str[idx] == '^' ||
-				str[idx] == '*' || str[idx] == '/')
+				str[idx] == '*' || str[idx] == '/' ||
+				str[idx] == '=')
 		{
 			tempObject.t = 'o';
 			tempObject.d.op = str[idx++];
@@ -71,6 +72,14 @@ int parser(QueueType *q, char str[], int strMax)
 						return -7; // queue push error
 				}
 			}
+		}
+		else if (('a' <= str[idx] && str[idx] <= 'z') ||
+				('A' <= str[idx] && str[idx] <= 'Z'))
+		{
+			tempObject.t = 'v';
+			idx += readVariable(v, &str[idx], &tempObject.d.var);
+			if (queuePush(q, tempObject))
+				return -8; // queue push error
 		}
 	}
 
@@ -126,6 +135,7 @@ int convertPostfix(QueueType *qout, StackType *s, QueueType *qin)
 		switch (currObject.t)
 		{
 		case 'n':
+		case 'v':
 			if (queuePush(qout, currObject))
 				return -13; // queue push error
 			break;
@@ -183,7 +193,8 @@ int convertPostfix(QueueType *qout, StackType *s, QueueType *qin)
 						else if (tempObject.d.op == '*' ||
 							tempObject.d.op == '/' ||
 							tempObject.d.op == '+' ||
-							tempObject.d.op == '-')
+							tempObject.d.op == '-' ||
+							tempObject.d.op == '=')
 							break;
 						else
 							return -21; // operator error
@@ -213,7 +224,8 @@ int convertPostfix(QueueType *qout, StackType *s, QueueType *qin)
 								return -20; // stack pop error
 						}
 						else if (tempObject.d.op == '+' ||
-								tempObject.d.op == '-')
+								tempObject.d.op == '-' ||
+								tempObject.d.op == '=')
 							break;
 						else
 							return -21; // operator error
@@ -237,6 +249,37 @@ int convertPostfix(QueueType *qout, StackType *s, QueueType *qin)
 							tempObject.d.op == '^' ||
 							tempObject.d.op == '*' ||
 							tempObject.d.op == '/')
+						{
+							err = 0;
+							if (queuePush(qout, stackPop(s, &err)))
+								return -19; // queue push error
+							if (err)
+								return -20; // stack pop error
+						}
+						else if (tempObject.d.op == '=')
+							break;
+						else
+							return -21; // operator error
+					}
+				}
+				break;
+			case '=':
+				while (!stackEmpty(s))
+				{
+					err = 0;
+					OType tempObject = stackPeek(s, &err);
+					if (err)
+						return -18; // stack peek error
+					if (tempObject.t != 'o')
+						break;
+					else
+					{
+						if (tempObject.d.op == '+' ||
+							tempObject.d.op == '-' ||
+							tempObject.d.op == '^' ||
+							tempObject.d.op == '*' ||
+							tempObject.d.op == '/' ||
+							tempObject.d.op == '=')
 						{
 							err = 0;
 							if (queuePush(qout, stackPop(s, &err)))
@@ -292,7 +335,7 @@ void removeSpace(char str[], int strMax)
 		str[strMax - 1] = '\0';
 }
 
-#define READ_NUM_MAX	(20)
+#define READ_NUM_MAX	(25)
 int readNumber(char *pstr, double *num)
 {
 	int len = 1;
@@ -314,3 +357,29 @@ int readNumber(char *pstr, double *num)
 	return len;
 }
 
+int readVariable(VListType *v, char *pstr, VType **var)
+{
+	int len = 1;
+	char tempStr[READ_NUM_MAX];
+
+	// until end of str,
+	// while number, alphabet or underbar(_)
+	tempStr[0] = pstr[0];
+	while (pstr[len] != '\0' && (len < READ_NUM_MAX) &&
+		(('0' <= pstr[len] && pstr[len] <= '9') ||
+		('a' <= pstr[len] && pstr[len] <= 'z') ||
+			('A' <= pstr[len] && pstr[len] <= 'Z') ||
+			pstr[len] == '_'))
+	{
+		tempStr[len] = pstr[len];
+		len++;
+	}
+	tempStr[len] = '\0';
+	*var = varSearch(v, tempStr, READ_NUM_MAX);
+	if (*var == NULL)
+	{
+		*var = varNew(v, tempStr, READ_NUM_MAX);
+	}
+
+	return len;
+}

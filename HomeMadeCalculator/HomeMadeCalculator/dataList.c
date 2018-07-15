@@ -1,5 +1,37 @@
 #include "dataList.h"
 
+VType* varSearch(VListType *v, char *str, int strMax)
+{
+	int i;
+	for (i = 0; i < v->size; i++)
+	{
+		if (!strncmp(v->var[i].name, str, strMax))
+			return &v->var[i];
+	}
+	return NULL;
+}
+
+VType* varNew(VListType *v, char *str, int strMax)
+{
+	if (v->size == VAR_LIST_SIZE)
+		return NULL; // error
+	strncpy_s(v->var[v->size].name, VAR_NAME_SIZE, str, strMax);
+	v->var[v->size].assign = 0;
+	v->size++;
+	return &v->var[v->size - 1];
+}
+
+void stackClear(StackType *s)
+{
+	s->top = 0;
+}
+
+void queueClear(QueueType *q)
+{
+	q->head = 0;
+	q->tail = 0;
+}
+
 void stackPrint(StackType* s, char str[])
 {
 	int idx;
@@ -91,6 +123,9 @@ void queuePrint(QueueType* q, char str[])
 			break;
 		case 'b':
 			printf("Order: %d\tType: bracket\tData: %c\n", order, q->queue[idx].d.br);
+			break;
+		case 'v':
+			printf("Order: %d\tType: variable\tData: %s\n", order, q->queue[idx].d.var->name);
 			break;
 		default:
 			printf("Order: %d\tType: ?????\tData: ??????\n", order);

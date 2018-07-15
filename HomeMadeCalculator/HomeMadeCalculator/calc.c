@@ -10,7 +10,7 @@ int postfixCalc(QueueType *qin, StackType *s)
 		tempObject = queuePop(qin, &err);
 		if (err)
 			return -1;
-		if (tempObject.t == 'n')
+		if (tempObject.t == 'n' || tempObject.t == 'v')
 		{
 			if (stackPush(s, tempObject))
 				return -2;
@@ -18,36 +18,75 @@ int postfixCalc(QueueType *qin, StackType *s)
 		else if (tempObject.t == 'o')
 		{
 			double a, b;
+			OType aObj, bObj;
 			err = 0;
-			b = stackPop(s, &err).d.num;
+			bObj = stackPop(s, &err);
 			if (err)
 				return -3;
+			if (bObj.t == 'n')
+				b = bObj.d.num;
+			else if (bObj.t == 'v')
+			{
+				// assigned number
+				if (bObj.d.var->assign)
+					b = bObj.d.var->value;
+				// not assigned var cannot be in right-hand side
+				else
+					return -4; // wrong parameter
+			}
+
 			err = 0;
-			a = stackPop(s, &err).d.num;
+			aObj = stackPop(s, &err);
 			if (err)
-				return -4;
+				return -5;
+			if (tempObject.d.op != '=')
+			{
+				if (aObj.t == 'n')
+					a = aObj.d.num;
+				else if (aObj.t == 'v')
+				{
+					if (aObj.d.var->assign)
+						a = aObj.d.var->value;
+					// not assigned var cannot be used if is not substitution
+					else
+						return -6; // wrong parameter
+				}
+			}
+			// substitution need left-hand side as variable
+			else if (aObj.t != 'v')
+				return -7; // wrong parameter
+
 			switch (tempObject.d.op)
 			{
 			case '^':
-				a = pow(a, b);
+				tempObject.d.num = pow(a, b);
+				tempObject.t = 'n';
 				break;
 			case '*':
-				a = a * b;
+				tempObject.d.num = a * b;
+				tempObject.t = 'n';
 				break;
 			case '/':
-				a = a / b;
+				tempObject.d.num = a / b;
+				tempObject.t = 'n';
 				break;
 			case '+':
-				a = a + b;
+				tempObject.d.num = a + b;
+				tempObject.t = 'n';
 				break;
 			case '-':
-				a = a - b;
+				tempObject.d.num = a - b;
+				tempObject.t = 'n';
+				break;
+			case '=':
+				aObj.d.var->assign = 1;
+				aObj.d.var->value = b;
+				tempObject = aObj;
 				break;
 			}
-			tempObject.t = 'n';
-			tempObject.d.num = a;
+			
 			if (stackPush(s, tempObject))
-				return -5;
+				return -7;
 		}
 	}
 
