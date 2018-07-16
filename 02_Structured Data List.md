@@ -1043,3 +1043,458 @@ int postfixCalc(QueueType *qin, StackType *s)
 }
 ```
 
+## 2. 변수 리스트와 함수 리스트
+
+### 2.1. 변수용 리스트 추가와 대입 연산
+
+- object 타입 중 variable 형태를 추가
+- variable은 VType 포인터로 VList에 있는 변수를 가리킴
+- 새로운 문자를 인식하면 변수가 새로 생성되며, 이를 가리키는 포인터가 OType으로 저장
+- VType의 int assign을 통해 값이 대입된 적이 있는지 확인하여 연산이 가능한지 결정
+  (예를 들어 assign=0일 때 이 값을 계산식으로 활용할 경우 에러 출력)
+  (한 번 '='를 통해 대입된 경우 assign=1이므로 다음 연산에서 계산식에 활용 가능)
+
+```c
+// dataList.h: type define part
+typedef struct _VType_
+{
+	char name[VAR_NAME_SIZE];
+	int assign;
+	double value;
+} VType;
+
+typedef struct _VListType_
+{
+	VType var[VAR_LIST_SIZE];
+	int size;
+} VListType;
+
+typedef union _DType_
+{
+	double num;
+	char op;
+	char br;
+	VType *var;
+} DType;
+
+typedef struct _OType_
+{
+	char t; // 'n': number, 'o': operator, 'b': bracket, 'v': variable
+	DType d;
+} OType;
+```
+
+- 문자로 시작하는 항을 발견했을 경우 readVariable 함수 실행
+- 괄호나 연산자가 오기 전까지 읽으며, 읽은 문자열은 기존의 VList와 비교하여 변수가 존재하는지 검색(varSearch)
+- 만약 같은 변수가 없을 경우, 새로운 변수를 생성(varNew)
+
+```c
+// parser.c: variable function
+int readVariable(VListType *v, char *pstr, VType **var)
+{
+	int len = 1;
+	char tempStr[READ_NUM_MAX];
+
+	// until end of str,
+	// while number, alphabet or underbar(_)
+	tempStr[0] = pstr[0];
+	while (pstr[len] != '\0' && (len < READ_NUM_MAX) &&
+		(('0' <= pstr[len] && pstr[len] <= '9') ||
+		('a' <= pstr[len] && pstr[len] <= 'z') ||
+			('A' <= pstr[len] && pstr[len] <= 'Z') ||
+			pstr[len] == '_'))
+	{
+		tempStr[len] = pstr[len];
+		len++;
+	}
+	tempStr[len] = '\0';
+	*var = varSearch(v, tempStr, READ_NUM_MAX);
+	if (*var == NULL)
+	{
+		*var = varNew(v, tempStr, READ_NUM_MAX);
+	}
+
+	return len;
+}
+```
+
+- varSearch는 순차적으로 문자열 비교를 수행하며, 완전히 같아야 함
+- varNew는 변수를 초기화하고 VList에 추가함
+- 초기화시, assign=0을 하여 새로운 변수가 대입이 아닌 계산에 사용되지 않도록 설정
+
+```c
+// dataList.c: variable functions
+VType* varSearch(VListType *v, char *str, int strMax)
+{
+	int i;
+	for (i = 0; i < v->size; i++)
+	{
+		if (!strncmp(v->var[i].name, str, strMax))
+			return &v->var[i];
+	}
+	return NULL;
+}
+
+VType* varNew(VListType *v, char *str, int strMax)
+{
+	if (v->size == VAR_LIST_SIZE)
+		return NULL; // error
+	strncpy_s(v->var[v->size].name, VAR_NAME_SIZE, str, strMax);
+	v->var[v->size].assign = 0;
+	v->size++;
+	return &v->var[v->size - 1];
+}
+```
+
+- 변수는 기본적으로 숫자와 동일하게 취급
+- 대입 연산자 '=' 는 가장 낮은 우선순위를 지님
+
+```c
+// parser.c: modified postfix conversion function
+int convertPostfix(QueueType *qout, StackType *s, QueueType *qin)
+{
+	int err;
+	OType currObject;
+	while (!queueEmpty(qin))
+	{
+		err = 0;
+		currObject = queuePop(qin, &err);
+		if (err)
+			return -12; // queue pop error;
+		switch (currObject.t)
+		{
+		case 'n':
+		case 'v':
+			if (queuePush(qout, currObject))
+				return -13; // queue push error
+			break;
+		case 'b':
+			if (currObject.d.br == '(')
+			{
+				if (stackPush(s, currObject))
+					return -14; // stack push error
+			}
+			else if (currObject.d.br == ')')
+			{
+				while (!stackEmpty(s))
+				{
+					err = 0;
+					currObject = stackPop(s, &err);
+					if (err)
+						return -15; // stack pop error
+					if (currObject.t != 'b')
+					{
+						if (queuePush(qout, currObject))
+							return -16; // queue push error
+					}
+					else
+					{
+						if (currObject.d.br == '(')
+							break;
+						else
+							return -17; // bracket error
+					}
+				}
+			}
+			break;
+		case 'o':
+			switch (currObject.d.op)
+			{
+			case '^':
+				while (!stackEmpty(s))
+				{
+					err = 0;
+					OType tempObject = stackPeek(s, &err);
+					if (err)
+						return -18; // stack peek error
+					if (tempObject.t != 'o')
+						break;
+					else
+					{
+						if (tempObject.d.op == '^')
+						{
+							err = 0;
+							if (queuePush(qout, stackPop(s, &err)))
+								return -19; // queue push error
+							if (err)
+								return -20; // stack pop error
+						}
+						else if (tempObject.d.op == '*' ||
+							tempObject.d.op == '/' ||
+							tempObject.d.op == '+' ||
+							tempObject.d.op == '-' ||
+							tempObject.d.op == '=')
+							break;
+						else
+							return -21; // operator error
+					}
+				}
+				break;
+			case '*':
+			case '/':
+				while (!stackEmpty(s))
+				{
+					err = 0;
+					OType tempObject = stackPeek(s, &err);
+					if (err)
+						return -18; // stack peek error
+					if (tempObject.t != 'o')
+						break;
+					else
+					{
+						if (tempObject.d.op == '^' ||
+							tempObject.d.op == '*' ||
+							tempObject.d.op == '/')
+						{
+							err = 0;
+							if (queuePush(qout, stackPop(s, &err)))
+								return -19; // queue push error
+							if (err)
+								return -20; // stack pop error
+						}
+						else if (tempObject.d.op == '+' ||
+								tempObject.d.op == '-' ||
+								tempObject.d.op == '=')
+							break;
+						else
+							return -21; // operator error
+					}
+				}
+				break;
+			case '+':
+			case '-':
+				while (!stackEmpty(s))
+				{
+					err = 0;
+					OType tempObject = stackPeek(s, &err);
+					if (err)
+						return -18; // stack peek error
+					if (tempObject.t != 'o')
+						break;
+					else
+					{
+						if (tempObject.d.op == '+' ||
+							tempObject.d.op == '-' ||
+							tempObject.d.op == '^' ||
+							tempObject.d.op == '*' ||
+							tempObject.d.op == '/')
+						{
+							err = 0;
+							if (queuePush(qout, stackPop(s, &err)))
+								return -19; // queue push error
+							if (err)
+								return -20; // stack pop error
+						}
+						else if (tempObject.d.op == '=')
+							break;
+						else
+							return -21; // operator error
+					}
+				}
+				break;
+			case '=':
+				while (!stackEmpty(s))
+				{
+					err = 0;
+					OType tempObject = stackPeek(s, &err);
+					if (err)
+						return -18; // stack peek error
+					if (tempObject.t != 'o')
+						break;
+					else
+					{
+						if (tempObject.d.op == '+' ||
+							tempObject.d.op == '-' ||
+							tempObject.d.op == '^' ||
+							tempObject.d.op == '*' ||
+							tempObject.d.op == '/' ||
+							tempObject.d.op == '=')
+						{
+							err = 0;
+							if (queuePush(qout, stackPop(s, &err)))
+								return -19; // queue push error
+							if (err)
+								return -20; // stack pop error
+						}
+						else
+							return -21; // operator error
+					}
+				}
+				break;
+			}
+			if (stackPush(s, currObject))
+				return -22; // stack push error
+			break;
+		}
+	}
+	// take all from stack and put in the queue
+	while (!stackEmpty(s))
+	{
+		err = 0;
+		if (queuePush(qout, stackPop(s, &err)))
+			return -23; // queue push error
+		if (err)
+			return -24; // stack pop error
+	}
+
+	return 0;
+}
+```
+
+- 계산식에서 변수가 대입된 적 없이 사용될 때 에러 출력(assign=0)
+- 변수에 대입 연산을 수행하면 assign=1을 하여 대입된 변수라 식별 가능
+
+```c
+// calc.c: modified function of postfix calculation
+int postfixCalc(QueueType *qin, StackType *s)
+{
+	int err;
+	OType tempObject;
+	while (!queueEmpty(qin))
+	{
+		err = 0;
+		tempObject = queuePop(qin, &err);
+		if (err)
+			return -1;
+		if (tempObject.t == 'n' || tempObject.t == 'v')
+		{
+			if (stackPush(s, tempObject))
+				return -2;
+		}
+		else if (tempObject.t == 'o')
+		{
+			double a, b;
+			OType aObj, bObj;
+			err = 0;
+			bObj = stackPop(s, &err);
+			if (err)
+				return -3;
+			if (bObj.t == 'n')
+				b = bObj.d.num;
+			else if (bObj.t == 'v')
+			{
+				// assigned number
+				if (bObj.d.var->assign)
+					b = bObj.d.var->value;
+				// not assigned var cannot be in right-hand side
+				else
+					return -4; // wrong parameter
+			}
+
+			err = 0;
+			aObj = stackPop(s, &err);
+			if (err)
+				return -5;
+			if (tempObject.d.op != '=')
+			{
+				if (aObj.t == 'n')
+					a = aObj.d.num;
+				else if (aObj.t == 'v')
+				{
+					if (aObj.d.var->assign)
+						a = aObj.d.var->value;
+					// not assigned var cannot be used if is not substitution
+					else
+						return -6; // wrong parameter
+				}
+			}
+			// substitution need left-hand side as variable
+			else if (aObj.t != 'v')
+				return -7; // wrong parameter
+
+			switch (tempObject.d.op)
+			{
+			case '^':
+				tempObject.d.num = pow(a, b);
+				tempObject.t = 'n';
+				break;
+			case '*':
+				tempObject.d.num = a * b;
+				tempObject.t = 'n';
+				break;
+			case '/':
+				tempObject.d.num = a / b;
+				tempObject.t = 'n';
+				break;
+			case '+':
+				tempObject.d.num = a + b;
+				tempObject.t = 'n';
+				break;
+			case '-':
+				tempObject.d.num = a - b;
+				tempObject.t = 'n';
+				break;
+			case '=':
+				aObj.d.var->assign = 1;
+				aObj.d.var->value = b;
+				tempObject = aObj;
+				break;
+			}
+			
+			if (stackPush(s, tempObject))
+				return -7;
+		}
+	}
+
+	return 0;
+}
+```
+
+- main 함수에서 식 입력을 반복적으로 수행
+- 한 번 수식을 계산하면 stack과 queue를 초기화하지만, 변수 리스트 VList는 유지
+
+```c
+// main.c: modified loop operation
+int main()
+{
+	int err;
+	char str[STR_SIZE];
+	QueueType qInfix = { { 0, }, 0, 0 };
+	QueueType qPostfix = { { 0, }, 0, 0 };
+	StackType sCalculator = { { 0, }, 0 };
+	VListType VList = {
+		{ { 0 }, },
+		0,
+	};
+	while (1)
+	{
+		OType result;
+		// input
+		printf(">> ");
+		gets(str);
+
+		if (err = parser(&qInfix, &VList, str, STR_SIZE))
+		{
+			printf("!!! Parser Error: %d !!!\n", err);
+			system("pause");
+			return -1;
+		}
+		queuePrint(&qInfix, "Infix");
+		if (err = convertPostfix(&qPostfix, &sCalculator, &qInfix))
+		{
+			printf("!!! Postfix Error: %d !!!\n", err);
+			system("pause");
+			return -1;
+		}
+		queuePrint(&qPostfix, "Postfix");
+		if (err = postfixCalc(&qPostfix, &sCalculator))
+		{
+			printf("!!! Calc Error: %d !!!\n", err);
+			system("pause");
+			return -1;
+		}
+		result = stackPop(&sCalculator, &err);
+		if (result.t == 'n')
+			printf("\tans = %.6lf\n", result.d.num);
+		else if (result.t == 'v')
+			printf("\t%s = %.6lf\n", result.d.var->name, result.d.var->value);
+
+		stackClear(&sCalculator);
+		queueClear(&qInfix);
+		queueClear(&qPostfix);
+	}
+	system("pause");
+	return 0;
+}
+```
+
